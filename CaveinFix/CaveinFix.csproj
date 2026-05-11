@@ -3,9 +3,9 @@
   <PropertyGroup>
     <ModName>CaveinFix</ModName>
     <ModType>code</ModType>
-    <ModVersion>1.0.0</ModVersion>
+    <ModVersion>1.0.1</ModVersion>
     <ModId>caveinfix</ModId>
-    <Description></Description>
+    <Description>Various fixes for cave-in mechanics</Description>
     <Side>universal</Side>
     <RequiredOnClient>true</RequiredOnClient>
     <RequiredOnServer>true</RequiredOnServer>
@@ -23,7 +23,7 @@
 
   <!-- Project settings -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <ImplicitUsings>enable</ImplicitUsings>
