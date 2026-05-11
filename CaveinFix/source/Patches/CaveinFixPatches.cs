@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
 using Vintagestory.API.MathTools;
@@ -15,30 +16,68 @@ namespace CaveinFix.Patches;
 public class CaveinFixPatches : ModSystem
 {
     private Harmony _patcher;
+    private static bool _patched = false;
 
     public static ICoreServerAPI _api;
     public static ModConfig Config = new();
+
+    // the instability multiplier actually in effect
+    // gotten from the server if on a server, otherwise gotten from the client
+    public static float EffectiveMultiplier = 1.0f;
+
+    private const string ChannelName = "caveinfix:configsync";
+
+    public override void Start(ICoreAPI api)
+    {
+        api.Network
+            .RegisterChannel(ChannelName)
+            .RegisterMessageType<ConfigSyncPacket>();
+    }
 
     public override void StartServerSide(ICoreServerAPI api)
     {
         _api = api;
         Config = api.LoadModConfig<ModConfig>("caveinfix.json") ?? new ModConfig();
         api.StoreModConfig(Config, "caveinfix.json");
+        EffectiveMultiplier = Config.InstabilityMultiplier;
 
-        _patcher = new Harmony(Mod.Info.ModID);
-
-        _patcher.PatchCategory("CaveinFixPatches");
+        if (!_patched)
+        {
+            _patcher = new Harmony(Mod.Info.ModID);
+            _patcher.PatchCategory("CaveinFixPatches");
+            _patched = true;
+        }
 
         if (!api.ModLoader.IsModEnabled("interestingoregen"))
         {
             api.Logger.Notification("CaveInFix: InterestingOreGen not detected. Enabling IOG cave-in mechanics.");
-
             _patcher.PatchCategory("InterestingOreGenPatches");
         }
         else
         {
             api.Logger.Notification("CaveInFix: InterestingOreGen detected. Disabling Enabling cave-in mechanics to prevent conflicts.");
         }
+
+        // if a server, send a packet on player join that syncs the client instability config with the server's
+        var serverChannel = api.Network.GetChannel(ChannelName) as IServerNetworkChannel;
+        api.Event.PlayerJoin += player => serverChannel.SendPacket(new ConfigSyncPacket { InstabilityMultiplier = EffectiveMultiplier }, player);
+    }
+
+    public override void StartClientSide(ICoreClientAPI api)
+    {
+        // load local config only as the initial fallback
+        var localConfig = api.LoadModConfig<ModConfig>("caveinfix.json") ?? new ModConfig();
+        EffectiveMultiplier = localConfig.InstabilityMultiplier;
+
+        if (!_patched)
+        {
+            _patcher = new Harmony(Mod.Info.ModID);
+            _patcher.PatchCategory("CaveinFixPatches");
+            _patched = true;
+        }
+
+        (api.Network.GetChannel(ChannelName) as IClientNetworkChannel)
+            .SetMessageHandler<ConfigSyncPacket>(packet => EffectiveMultiplier = packet.InstabilityMultiplier);
     }
 
     public override void AssetsFinalize(ICoreAPI api)
@@ -51,6 +90,7 @@ public class CaveinFixPatches : ModSystem
 
     public override void Dispose()
     {
+        _patched = false;
         _patcher?.UnpatchAll(Mod.Info.ModID);
         base.Dispose();
     }
@@ -69,9 +109,7 @@ internal static class Patches
         private static readonly System.Reflection.MethodInfo _searchCollapsibleMethod =
             AccessTools.Method(typeof(BlockBehaviorUnstableRock), "searchCollapsible");
 
-        // Thread-local set of behavior instances that already have scaled fields,
-        // preventing double-scaling when the same shared instance is encountered
-        // during the recursive getInstability chain triggered by our postfix.
+        // thread-local set of behavior instances that already have scaled fields, preventing double-scaling
         [ThreadStatic]
         private static HashSet<BlockBehaviorUnstableRock> _scaledInstances;
 
@@ -120,7 +158,7 @@ internal static class Patches
             ref double __result
         )
         {
-            float multiplier = CaveinFixPatches.Config.InstabilityMultiplier;
+            float multiplier = CaveinFixPatches.EffectiveMultiplier;
 
             if (multiplier <= 0.0f)
             {
@@ -134,14 +172,11 @@ internal static class Patches
 
             if (_scaledInstances.Contains(__instance))
             {
-                // This instance's fields are already scaled by the outer call on the same thread.
-                // Just invoke searchCollapsible with the current (scaled) fields.
                 var res = (CollapsibleSearchResult)_searchCollapsibleMethod.Invoke(__instance, new object[] { pos, false });
                 __result = Math.Clamp(res.Instability, 0.0, 1.0);
                 return false;
             }
 
-            // Outer call: scale maxSupportDistance and maxSupportSearchDistanceSq, invoke searchCollapsible, then restore the originals.
             float origMaxSD = (float)_maxSupportDistanceField.GetValue(__instance);
             float origMaxSDSq = (float)_maxSupportSearchDistanceSqField.GetValue(__instance);
 
