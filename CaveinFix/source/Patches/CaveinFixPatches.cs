@@ -52,6 +52,7 @@ public class CaveinFixPatches : ModSystem
         {
             api.Logger.Notification("CaveInFix: InterestingOreGen not detected. Enabling IOG cave-in mechanics.");
             _patcher.PatchCategory("InterestingOreGenPatches");
+            Patches.CaveInOnBreakPatch.MaxSearchSteps = Config.MaxCaveinSearchSteps;
         }
         else
         {
@@ -227,7 +228,7 @@ internal static class Patches
         private static double MandatoryStepThreshold = 0.75;   // >= this -> forced move (random among candidates)
         private static double BiasStepThreshold = 0.50;        // >= this -> biased move (probabilistic)
         private static double BiasStepChance = 0.70;           // percent to take biased move (0..1)
-        private static int MaxSearchSteps = 20;             // how many face-steps to attempt
+        internal static int MaxSearchSteps = 20;             // how many face-steps to attempt
         private static double DownwardPenalty = 0.6;           // downward move weight multiplier (slight anti-bias)
         private static double EpicenterInstability => EpicenterThreshold; // use existing threshold var
 

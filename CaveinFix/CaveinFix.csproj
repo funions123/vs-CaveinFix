@@ -3,7 +3,7 @@
   <PropertyGroup>
     <ModName>CaveinFix</ModName>
     <ModType>code</ModType>
-    <ModVersion>1.0.2</ModVersion>
+    <ModVersion>1.0.3</ModVersion>
     <ModId>caveinfix</ModId>
     <Description>Various fixes for cave-in mechanics</Description>
     <Side>universal</Side>
