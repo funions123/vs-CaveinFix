@@ -48,15 +48,20 @@ public class CaveinFixPatches : ModSystem
             _patched = true;
         }
 
-        if (!api.ModLoader.IsModEnabled("interestingoregen"))
+        // Prevent harmony patch collision
+        bool iogLoaded = api.ModLoader.IsModEnabled("interestingoregen");
+        bool imeLoaded = api.ModLoader.IsModEnabled("interestingme");
+
+        if (!iogLoaded && !imeLoaded)
         {
-            api.Logger.Notification("CaveInFix: InterestingOreGen not detected. Enabling IOG cave-in mechanics.");
+            api.Logger.Notification("CaveInFix: Neither InterestingOreGen nor IME detected. Enabling IOG cave-in mechanics.");
             _patcher.PatchCategory("InterestingOreGenPatches");
             Patches.CaveInOnBreakPatch.MaxSearchSteps = Config.MaxCaveinSearchSteps;
         }
         else
         {
-            api.Logger.Notification("CaveInFix: InterestingOreGen detected. Disabling Enabling cave-in mechanics to prevent conflicts.");
+            string detected = iogLoaded ? (imeLoaded ? "InterestingOreGen and IME" : "InterestingOreGen") : "IME";
+            api.Logger.Notification($"CaveInFix: {detected} detected. Disabling cave-in mechanics to prevent conflicts.");
         }
 
         // if a server, send a packet on player join that syncs the client instability config with the server's
